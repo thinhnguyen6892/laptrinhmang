@@ -11,6 +11,7 @@ package master.model;
  */
 public class FileServerModel extends AbtractModel{
     private String fileName;
+    private String fileId;
 
     /**
      * @return the fileName
@@ -24,5 +25,19 @@ public class FileServerModel extends AbtractModel{
      */
     public void setFileName(String fileName) {
         this.fileName = fileName;
+    }
+
+    /**
+     * @return the fileId
+     */
+    public String getFileId() {
+        return fileId;
+    }
+
+    /**
+     * @param fileId the fileId to set
+     */
+    public void setFileId(String fileId) {
+        this.fileId = fileId;
     }
 }

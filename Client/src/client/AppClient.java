@@ -10,19 +10,14 @@ import communication.object.ClientMessage;
 import communication.object.ClientResponse;
 import communication.object.FileInfomation;
 import communication.object.contanst.Task;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 
-import java.net.Socket;
+import java.io.*;
+
+import java.net.*;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JOptionPane;
-import javax.swing.JTable;
+import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
 
@@ -35,10 +30,14 @@ public class AppClient extends javax.swing.JFrame {
     /**
      * Creates new form AppClient
      */
-    
+    private File dir;
     
     public AppClient() {
         initComponents();
+        dir = new File("TBD");
+        if (!dir.exists()) {
+            dir.mkdir();
+        }
     }
 
     /**
@@ -112,7 +111,7 @@ public class AppClient extends javax.swing.JFrame {
 
             },
             new String [] {
-                "Name File", "Ip Address", "Port", "Download "
+                "Id", "Name File", "Ip Address", "Port", "Download "
             }
         ));
         tableDataServer.setEnabled(null != socket);
@@ -182,10 +181,6 @@ public class AppClient extends javax.swing.JFrame {
     private void btcSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btcSearchActionPerformed
 
         String search = txtSearch.getText();
-        if (search.isEmpty()) {
-            JOptionPane.showMessageDialog(null, "Input empty!!");
-            return;
-        }
         try{
             // create an object output stream from the output stream so we can send an object through it
             ClientMessage clientMessage = new ClientMessage();
@@ -199,11 +194,12 @@ public class AppClient extends javax.swing.JFrame {
                 DefaultTableModel model = (DefaultTableModel) tableDataServer.getModel();
                 model.setRowCount(0);
                 for(FileInfomation s : fileInfomation.getResult()) {
-                    Object[] row = new Object[4];
-                    row[0] = s.getFileName();
-                    row[1] = s.getIpAddress();
-                    row[2] = s.getPort();
-                    row[3] = "Download";
+                    Object[] row = new Object[5];
+                    row[0] = s.getFileId();
+                    row[1] = s.getFileName();
+                    row[2] = s.getIpAddress();
+                    row[3] = s.getPort();
+                    row[4] = "Download";
                     model.addRow(row);
                 }
                 tableDataServer.setModel(model);
@@ -244,7 +240,7 @@ public class AppClient extends javax.swing.JFrame {
         } catch (IOException ie) {
             System.out.println("Can't connect to server");
         }
-//        
+//
 //        btcSearch.setEnabled(true);
 //        JOptionPane.showMessageDialog(null, "Connect success!!");
 //        DefaultTableModel model = (DefaultTableModel) tableDataServer.getModel();
@@ -261,11 +257,20 @@ public class AppClient extends javax.swing.JFrame {
     }//GEN-LAST:event_btnConnectActionPerformed
 
     private void tableDataServerMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableDataServerMouseClicked
-        JTable target = (JTable) evt.getSource();
-        String nameFile = tableDataServer.getValueAt(target.getSelectedRow(), 0).toString();
-        String ip = tableDataServer.getValueAt(target.getSelectedRow(), 1).toString();
-        String port = tableDataServer.getValueAt(target.getSelectedRow(), 2).toString();
-        JOptionPane.showMessageDialog(null, nameFile + ": " + ip + ":" + port + " Download.....");
+        try {
+            JTable target = (JTable) evt.getSource();
+            String fileId = tableDataServer.getValueAt(target.getSelectedRow(), 0).toString();
+            String fileName = tableDataServer.getValueAt(target.getSelectedRow(), 1).toString();
+            String ip = tableDataServer.getValueAt(target.getSelectedRow(), 2).toString();
+            String port = tableDataServer.getValueAt(target.getSelectedRow(), 3).toString();
+            File fileToSave = new File(dir, fileName);
+            makeAckToFileServer(fileToSave, fileId, ip, Integer.valueOf(port));
+            
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(null, "Invalid data, please check the data!!!");
+            return;
+        }
+
     }//GEN-LAST:event_tableDataServerMouseClicked
 
     private void txtPortActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtPortActionPerformed
@@ -281,6 +286,103 @@ public class AppClient extends javax.swing.JFrame {
                 }
          }
     }//GEN-LAST:event_formWindowClosed
+
+    private void makeAckToFileServer(File file, String fileId, String addressString, Integer port) throws IOException {
+        String selectedFile = fileId;
+        DatagramSocket socket = new DatagramSocket();
+        byte[] selectedFileData = selectedFile.getBytes();
+        InetAddress address = InetAddress.getByName(addressString);
+        DatagramPacket fileAck = new DatagramPacket(selectedFileData, selectedFileData.length, address, port);
+        socket.send(fileAck);
+        //Wait for receiving
+        FileOutputStream outToFile = new FileOutputStream(file);
+        receivingFile(outToFile, socket);
+    }
+
+
+    private void receivingFile(FileOutputStream outToFile, DatagramSocket socket) throws IOException {
+
+        boolean flag;
+        int sequenceNumber = 0;
+        int findLast = 0;
+        int totalTransferred = 0;
+        while (true) {
+            byte[] message = new byte[1024];
+            byte[] fileByteArray = new byte[1021];
+
+            // Receive packet and retrieve message
+            DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
+            socket.setSoTimeout(0);
+            socket.receive(receivedPacket);
+
+            message = receivedPacket.getData();
+            totalTransferred = receivedPacket.getLength() + totalTransferred;
+            totalTransferred = Math.round(totalTransferred);
+//            StartTime timer;
+            // start the timer at the point transfer begins
+            if (sequenceNumber == 0) {
+//                timer = new StartTime();
+            }
+
+            if (Math.round(totalTransferred / 1000) % 50 == 0) {
+                double previousTimeElapsed = 0;
+                int previousSize = 0;
+//                PrintFactory.printCurrentStatistics(totalTransferred, previousSize,
+//                        timer, previousTimeElapsed);
+            }
+            InetAddress address = receivedPacket.getAddress();
+            int port = receivedPacket.getPort();
+
+            sequenceNumber = ((message[0] & 0xff) << 8) + (message[1] & 0xff);
+            // Retrieve the last message flag
+            // a returned value of true means we have a problem
+            flag = (message[2] & 0xff) == 1;
+            // if sequence number is the last one +1, then it is correct
+            // we get the data from the message and write the message
+            // that it has been received correctly
+            if (sequenceNumber == (findLast + 1)) {
+
+                // set the last sequence number to be the one we just received
+                findLast = sequenceNumber;
+
+                // Retrieve data from message
+                System.arraycopy(message, 3, fileByteArray, 0, 1021);
+
+                // Write the message to the file and print received message
+                outToFile.write(fileByteArray);
+                System.out.println("Received: Sequence number:"
+                        + findLast);
+
+                // Send acknowledgement
+                sendAck(findLast, socket, address, port);
+            } else {
+                System.out.println("Expected sequence number: "
+                        + (findLast + 1) + " but received "
+                        + sequenceNumber + ". DISCARDING");
+                // Re send the acknowledgement
+                sendAck(findLast, socket, address, port);
+            }
+
+            // Check for last message
+            if (flag) {
+                outToFile.flush();
+                outToFile.close();
+                break;
+            }
+        }
+    }
+
+    private void sendAck(int findLast, DatagramSocket socket, InetAddress address, int port) throws IOException {
+        // send acknowledgement
+        byte[] ackPacket = new byte[2];
+        ackPacket[0] = (byte) (findLast >> 8);
+        ackPacket[1] = (byte) (findLast);
+        // the datagram packet to be sent
+        DatagramPacket acknowledgement = new DatagramPacket(ackPacket,
+                ackPacket.length, address, port);
+        socket.send(acknowledgement);
+        System.out.println("Sent ack: Sequence Number = " + findLast);
+    }
 
     /**
      * @param args the command line arguments

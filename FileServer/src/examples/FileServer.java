@@ -32,44 +32,64 @@ package examples;
 
 
 import communication.object.ClientMessage;
-import communication.object.FileInfo;
-import communication.object.FileResponse;
+
+import communication.object.FileServerResponse;
 import communication.object.contanst.Task;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
+
 
 import java.io.File;
-import java.io.FileInputStream;
+
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
+import java.net.*;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 
-public class Find extends javax.swing.JFrame {
-    
+public class FileServer extends javax.swing.JFrame {
+
+
+    private final Runnable runnable;
+
     /** Creates new form Find */
-    public Find() {
+    public FileServer() {
         initComponents();
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_OF_THREAD);
         dir = new File("SHARE");
         if (!dir.exists()) {
             dir.mkdir();
         }
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    while (true) {
+                        byte[] fileIdData = new byte[1024];
+                        DatagramPacket receivePacket = new DatagramPacket(fileIdData,fileIdData.length);
+                        datagramSocket.receive(receivePacket);
+                        String fileId = new String(receivePacket.getData(), 0, receivePacket.getLength());
+                        File file = fileMap.get(fileId);
+                        if(file != null) {
+                            FileTransmissionWorkerThread handler = new FileTransmissionWorkerThread(receivePacket.getAddress(), receivePacket.getPort(), file);
+                            executor.execute(handler);
+                        }
+                    }
+                } catch (IOException e) {
+
+                }
+            }
+        };
     }
-    
+
     /** This method is called from within the constructor to
      * initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is
@@ -202,10 +222,14 @@ public class Find extends javax.swing.JFrame {
             OutputStream os = socket.getOutputStream();
             // create an object output stream from the output stream so we can send an object through it
             objectOutputStream = new ObjectOutputStream(os);
-            FileResponse response = new FileResponse();
+            FileServerResponse response = new FileServerResponse();
             response.setPort(datagramSocket.getLocalPort());
             response.setFileNames(searchFile());
             objectOutputStream.writeObject(response);
+            
+            Thread thread = new Thread(runnable);
+            thread.start();
+            
         } catch (IOException ie) {
             JOptionPane.showMessageDialog(this, "Can't connect to server!!!");
             System.out.println("Can't connect to server");
@@ -223,10 +247,13 @@ public class Find extends javax.swing.JFrame {
                 clientMessage.setTask(Task.FILE_SERVER_CLOSE);
                 clientMessage.setClientPort(datagramSocket.getLocalPort());
                 objectOutputStream.writeObject(clientMessage);
+                if (datagramSocket != null) {
+                    datagramSocket.close();
+                }
                 socket.close();
             }
         } catch (IOException ex) {
-            Logger.getLogger(Find.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(FileServer.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_formWindowClosing
 
@@ -235,84 +262,21 @@ public class Find extends javax.swing.JFrame {
     }//GEN-LAST:event_txtPort1ActionPerformed
     
     
-    private List<String> searchFile() {
+    private Map<String, String> searchFile() {
+        fileMap.clear();
         File[] result = dir.listFiles();
+        int i = 0;
         List<File> files = Arrays.asList(result);
-        List<String> infomations = new ArrayList<String>();
+        Map<String, String> infomations = new HashMap();
         for(File f : files) {
-            infomations.add(f.getName());
+            String id = String.valueOf(i);
+            infomations.put(id, f.getName());
+            fileMap.put(id, f);
+            i++;
         }
         return infomations;
     }
-    
-    private void sendFile(String sourcePath, String address, Integer port) {
-        InetAddress inetAddress;
-        DatagramPacket sendPacket;
 
-        try {
-            File fileSend = new File(sourcePath);
-            InputStream inputStream = new FileInputStream(fileSend);
-            BufferedInputStream bis = new BufferedInputStream(inputStream);
-            inetAddress = InetAddress.getByName(address);
-            byte[] bytePart = new byte[PIECES_OF_FILE_SIZE];
-
-            // get file size
-            long fileLength = fileSend.length();
-            int piecesOfFile = (int) (fileLength / PIECES_OF_FILE_SIZE);
-            int lastByteLength = (int) (fileLength % PIECES_OF_FILE_SIZE);
-
-            // check last bytes of file
-            if (lastByteLength > 0) {
-                piecesOfFile++;
-            }
-
-            // split file into pieces and assign to fileBytess
-            byte[][] fileBytess = new byte[piecesOfFile][PIECES_OF_FILE_SIZE];
-            int count = 0;
-            while (bis.read(bytePart, 0, PIECES_OF_FILE_SIZE) > 0) {
-                fileBytess[count++] = bytePart;
-                bytePart = new byte[PIECES_OF_FILE_SIZE];
-            }
-
-            // read file info
-            FileInfo fileInfo = new FileInfo();
-            fileInfo.setFilename(fileSend.getName());
-            fileInfo.setFileSize(fileSend.length());
-            fileInfo.setPiecesOfFile(piecesOfFile);
-            fileInfo.setLastByteLength(lastByteLength);
-
-
-            // send file info
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ObjectOutputStream oos = new ObjectOutputStream(baos);
-            oos.writeObject(fileInfo);
-            sendPacket = new DatagramPacket(baos.toByteArray(), 
-                    baos.toByteArray().length, inetAddress, port);
-            datagramSocket.send(sendPacket);
-
-            // send file content
-            System.out.println("Sending file...");
-            // send pieces of file
-            for (int i = 0; i < (count - 1); i++) {
-                sendPacket = new DatagramPacket(fileBytess[i], PIECES_OF_FILE_SIZE,
-                        inetAddress, port);
-                datagramSocket.send(sendPacket);
-//                waitServer(40);
-            }
-            // send last bytes of file
-            sendPacket = new DatagramPacket(fileBytess[count - 1], PIECES_OF_FILE_SIZE,
-                    inetAddress, port);
-            datagramSocket.send(sendPacket);
-//            waitServer(40);
-
-            // close stream
-            bis.close();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-    }
-}
     
     /**
      * @param args the command line arguments
@@ -331,20 +295,21 @@ public class Find extends javax.swing.JFrame {
                     break;
                 }
         } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Find.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(FileServer.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Find.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(FileServer.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Find.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(FileServer.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(Find.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(FileServer.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
         //</editor-fold>
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new Find().setVisible(true);
+                new FileServer().setVisible(true);
             }
         });
     }
@@ -360,9 +325,9 @@ public class Find extends javax.swing.JFrame {
     // End of variables declaration//GEN-END:variables
     private Socket socket = null;
     private ObjectOutputStream objectOutputStream;
-    private ObjectInputStream objectInputStream;
     private Random rand = new Random();
     private File dir;
+    public static final int NUM_OF_THREAD = 4;
     private DatagramSocket datagramSocket;
-    private static final int PIECES_OF_FILE_SIZE = 1024 * 32;
+    private Map<String, File> fileMap = new HashMap<>();
 }

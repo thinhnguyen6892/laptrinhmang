@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="GUIFormExamples">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/FileServer/dist/GUIFormExamples.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

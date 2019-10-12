@@ -8,8 +8,7 @@ package master;
 import communication.object.ClientMessage;
 import communication.object.ClientResponse;
 import communication.object.FileInfomation;
-import communication.object.FileRequest;
-import communication.object.FileResponse;
+import communication.object.FileServerResponse;
 import communication.object.contanst.Task;
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,7 +47,8 @@ public class WorkerThread extends Thread {
         this.clientTableModel = clientTableModel;
         this.fileServerTableModel = fileServerTableModel;
     }
- 
+
+    @Override
     public void run() {
         System.out.println("Processing: " + socket);
         try {
@@ -78,8 +78,8 @@ public class WorkerThread extends Thread {
 //                                clientTableModel.fireTableDataChanged();
                                 break;   
                             }
-                } else if (object instanceof FileResponse) {
-                    updateFileAvalibility((FileResponse) object);
+                } else if (object instanceof FileServerResponse) {
+                    updateFileAvalibility((FileServerResponse) object);
                 }   
         }
             
@@ -122,7 +122,7 @@ public class WorkerThread extends Thread {
         fileServerTableModel.fireTableDataChanged();
     }
     
-    private void updateFileAvalibility(FileResponse response){
+    private void updateFileAvalibility(FileServerResponse response){
         SocketAddress socketAddress = socket.getRemoteSocketAddress();
         String address = getClientAddress();
         Integer port = response.getPort();
@@ -134,8 +134,9 @@ public class WorkerThread extends Thread {
         List<FileServerModel> serverModels = fileServerTableModel.getModel();
         List<FileInfomation> result = new ArrayList<>();
         for(FileServerModel model : serverModels) {
-            if(model.getFileName().equalsIgnoreCase(clientMessage.getParameters())) {
+            if(model.getFileName().equalsIgnoreCase(clientMessage.getParameters()) || clientMessage.getParameters().endsWith("")) {
                 FileInfomation fi = new FileInfomation();
+                fi.setFileId(model.getFileId());
                 fi.setFileName(model.getFileName());
                 fi.setIpAddress(model.getIpAddress());
                 fi.setPort(model.getPort());

@@ -31,19 +31,15 @@ public class Master extends javax.swing.JFrame {
     public Master() {
         initComponents();
         ExecutorService executor = Executors.newFixedThreadPool(NUM_OF_THREAD);
-        runnable = new Runnable() {
-
-            @Override
-            public void run() {
-                while (true) {
-                    try {
-                        Socket socket = serverSocket.accept();
-                        System.out.println("Client accepted: " + socket);
-                        WorkerThread handler = new WorkerThread(socket, clientTableModel, jTableClient, fileServerTableModel, jtableFileServer);
-                        executor.execute(handler);
-                    } catch (IOException e) {
-                        System.err.println(" Connection Error: " + e);
-                    }
+        runnable = () -> {
+            while (true) {
+                try {
+                    Socket socket = serverSocket.accept();
+                    System.out.println("Client accepted: " + socket);
+                    WorkerThread handler = new WorkerThread(socket, clientTableModel, jTableClient, fileServerTableModel, jtableFileServer);
+                    executor.execute(handler);
+                } catch (IOException e) {
+                    System.err.println(" Connection Error: " + e);
                 }
             }
         };

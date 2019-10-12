@@ -13,6 +13,7 @@ import java.util.List;
  * @author hungt
  */
 public class FileInfomation implements Serializable {
+    private String fileId;
     private String fileName;
     private String ipAddress;
     private Integer port;
@@ -57,6 +58,20 @@ public class FileInfomation implements Serializable {
      */
     public void setFileName(String fileName) {
         this.fileName = fileName;
+    }
+
+    /**
+     * @return the fileId
+     */
+    public String getFileId() {
+        return fileId;
+    }
+
+    /**
+     * @param fileId the fileId to set
+     */
+    public void setFileId(String fileId) {
+        this.fileId = fileId;
     }
 
     /**

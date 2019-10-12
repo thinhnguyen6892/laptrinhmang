@@ -6,27 +6,27 @@
 package communication.object;
 
 import java.io.Serializable;
-import java.util.List;
+import java.util.Map;
 
 /**
  *
  * @author hungt
  */
-public class FileResponse implements Serializable{
-    private List<String> fileNames;
+public class FileServerResponse implements Serializable {
+    private Map<String, String> fileNames;
     private Integer port;
     
     /**
      * @return the fileNames
      */
-    public List<String> getFileNames() {
+    public Map<String, String> getFileNames() {
         return fileNames;
     }
 
     /**
      * @param fileNames the fileNames to set
      */
-    public void setFileNames(List<String> fileNames) {
+    public void setFileNames(Map<String, String> fileNames) {
         this.fileNames = fileNames;
     }
 

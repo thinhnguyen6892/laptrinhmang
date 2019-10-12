@@ -5,11 +5,12 @@
  */
 package master;
 
-import communication.object.FileResponse;
+import communication.object.FileServerResponse;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import javax.swing.table.AbstractTableModel;
 
 import master.model.FileServerModel;
@@ -21,7 +22,7 @@ import master.model.FileServerModel;
 public class FileServerTableModel extends AbstractTableModel implements Serializable {
     
     private List<FileServerModel> model = new ArrayList<>();
-    private final String[] columns = {"STT", "File", "Address", "Port"};
+    private final String[] columns = {"STT", "Id", "File", "Address", "Port"};
     
     
     @Override
@@ -38,10 +39,13 @@ public class FileServerTableModel extends AbstractTableModel implements Serializ
         return columns[column];
     }
     
-    public void add(FileResponse response, String address, Integer port) {
-        for(String s : response.getFileNames()) {
+    public void add(FileServerResponse response, String address, Integer port) {
+        Map<String, String> fileNames = response.getFileNames();
+        for(String id : fileNames.keySet()) {
+            String fileName = fileNames.get(id);
             FileServerModel clientModel = new FileServerModel();
-            clientModel.setFileName(s);
+            clientModel.setFileId(id);
+            clientModel.setFileName(fileName);
             clientModel.setIpAddress(address);
             clientModel.setPort(port);
             getModel().add(clientModel);
@@ -66,9 +70,10 @@ public class FileServerTableModel extends AbstractTableModel implements Serializ
         FileServerModel entity = getModel().get(rowIndex);
         switch(columnIndex) {
             case 0: return rowIndex+1;
-            case 1: return entity.getFileName();
-            case 2: return entity.getIpAddress();
-            case 3: return entity.getPort();
+            case 1: return entity.getFileId();
+            case 2: return entity.getFileName();
+            case 3: return entity.getIpAddress();
+            case 4: return entity.getPort();
             default: return null;
         }
     }
