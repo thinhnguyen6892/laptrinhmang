@@ -14,6 +14,8 @@ import communication.object.contanst.Task;
 import java.io.*;
 
 import java.net.*;
+import java.util.Arrays;
+import java.util.List;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -64,6 +66,7 @@ public class AppClient extends javax.swing.JFrame {
                 return false;
             }
         };
+        jButton1 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -122,13 +125,20 @@ public class AppClient extends javax.swing.JFrame {
         });
         jScrollPane1.setViewportView(tableDataServer);
 
+        jButton1.setText("Download");
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton1ActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 643, Short.MAX_VALUE)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap(54, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(jLabel2)
@@ -143,7 +153,7 @@ public class AppClient extends javax.swing.JFrame {
                         .addComponent(jLabel3)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(txtPort, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 48, Short.MAX_VALUE)
                         .addComponent(btnConnect))
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(txtSearch)
@@ -151,6 +161,10 @@ public class AppClient extends javax.swing.JFrame {
                         .addComponent(btcSearch, javax.swing.GroupLayout.PREFERRED_SIZE, 77, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(22, 22, 22))
             .addComponent(jScrollPane1)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jButton1)
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -170,8 +184,10 @@ public class AppClient extends javax.swing.JFrame {
                         .addComponent(txtSearch, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(btcSearch)))
                 .addGap(18, 18, 18)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 334, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 277, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButton1)
+                .addGap(0, 13, Short.MAX_VALUE))
         );
 
         setSize(new java.awt.Dimension(659, 572));
@@ -257,19 +273,7 @@ public class AppClient extends javax.swing.JFrame {
     }//GEN-LAST:event_btnConnectActionPerformed
 
     private void tableDataServerMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableDataServerMouseClicked
-        try {
-            JTable target = (JTable) evt.getSource();
-            String fileId = tableDataServer.getValueAt(target.getSelectedRow(), 0).toString();
-            String fileName = tableDataServer.getValueAt(target.getSelectedRow(), 1).toString();
-            String ip = tableDataServer.getValueAt(target.getSelectedRow(), 2).toString();
-            String port = tableDataServer.getValueAt(target.getSelectedRow(), 3).toString();
-            File fileToSave = new File(dir, fileName);
-            makeAckToFileServer(fileToSave, fileId, ip, Integer.valueOf(port));
-            
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(null, "Invalid data, please check the data!!!");
-            return;
-        }
+        
 
     }//GEN-LAST:event_tableDataServerMouseClicked
 
@@ -287,6 +291,28 @@ public class AppClient extends javax.swing.JFrame {
          }
     }//GEN-LAST:event_formWindowClosed
 
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+        int[] rows = tableDataServer.getSelectedRows();
+        for (int i : rows) {
+            String fileId = tableDataServer.getValueAt(i, 0).toString();
+            String fileName = tableDataServer.getValueAt(i, 1).toString();
+            String ip = tableDataServer.getValueAt(i, 2).toString();
+            String port = tableDataServer.getValueAt(i, 3).toString();
+            Thread thread = new Thread(() -> {
+                try {
+                    File fileToSave = new File(dir, fileName);
+                    makeAckToFileServer(fileToSave, fileId, ip, Integer.valueOf(port));
+                } catch (IOException e) {
+                    JOptionPane.showMessageDialog(null, "Invalid data, please check the data!!!");
+                    return;
+                }
+            });
+            Thread thread1 = new Thread(new DownloadRunnable(dir, fileId, fileName, ip, port));
+            thread1.start();
+        }
+        
+    }//GEN-LAST:event_jButton1ActionPerformed
+
     private void makeAckToFileServer(File file, String fileId, String addressString, Integer port) throws IOException {
         String selectedFile = fileId;
         DatagramSocket socket = new DatagramSocket();
@@ -297,6 +323,7 @@ public class AppClient extends javax.swing.JFrame {
         //Wait for receiving
         FileOutputStream outToFile = new FileOutputStream(file);
         receivingFile(outToFile, socket);
+        JOptionPane.showMessageDialog(null, "File downloaded in: " + file.getAbsolutePath());
     }
 
 
@@ -432,6 +459,7 @@ public class AppClient extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btcSearch;
     private javax.swing.JButton btnConnect;
+    private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;

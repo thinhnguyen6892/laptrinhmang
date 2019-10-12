@@ -134,7 +134,7 @@ public class WorkerThread extends Thread {
         List<FileServerModel> serverModels = fileServerTableModel.getModel();
         List<FileInfomation> result = new ArrayList<>();
         for(FileServerModel model : serverModels) {
-            if(model.getFileName().equalsIgnoreCase(clientMessage.getParameters()) || clientMessage.getParameters().endsWith("")) {
+            if(model.getFileName().toLowerCase().contains(clientMessage.getParameters().toLowerCase())) {
                 FileInfomation fi = new FileInfomation();
                 fi.setFileId(model.getFileId());
                 fi.setFileName(model.getFileName());
